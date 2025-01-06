@@ -109,7 +109,7 @@ FROM base AS dependencies
 RUN wget https://${GITHUB}/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.28.tar.gz \
     && tar xf v0.3.28.tar.gz && rm v0.3.28.tar.gz && mv OpenBLAS-0.3.28 OpenBLAS \
     && cd OpenBLAS \
-    && make DYNAMIC_ARCH=1 \
+    && make DYNAMIC_ARCH=1 TARGET=HASWELL \
     && cp libopenblas.so* $REST_EXT_DIR/
 
 # Build and install libcint library
