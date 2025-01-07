@@ -5,8 +5,9 @@ on:
     branches:
       - main
       - 'v*'
-  tags:
-      - 'v*'
+    tags:
+        - 'v*'
+
 jobs:
   build:
     runs-on: ubuntu-latest
