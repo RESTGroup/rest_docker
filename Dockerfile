@@ -9,12 +9,12 @@ ENV IS_CHINA_ENV=False
 ENV GITHUB=github.com
 
 # Set compilers for C, C++, and Fortran
-ENV CC=gcc
-ENV CXX=g++
-ENV FC=gfortran
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
 
 # Define repository URL for dependencies
-ENV resturl=https://${GITHUB}/igor-1982
+ENV resturl=https://${GITHUB}/RESTGroup
 
 # Set the working directory for subsequent commands
 WORKDIR /opt
@@ -27,6 +27,7 @@ RUN if [ "$IS_CHINA_ENV" = "True" ]; then \
 
 # Install essential system packages and tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
     ca-certificates \
     build-essential \
     gcc \
@@ -49,6 +50,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtool \
     python3 \
     pkg-config \
+    openmpi-bin \
+    openmpi-common \
+    libopenmpi-dev \    
+    libclang-dev \
+    clang \
     && apt-get autoremove --purge -y && \
     apt-get autoclean -y && \
     rm -rf /var/cache/apt/* /var/lib/apt/lists/*
@@ -189,23 +195,8 @@ COPY --from=dependencies $REST_EXT_INC/ $REST_EXT_INC/
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest.git rest \
     && cd rest \
-    && git fetch --depth=1 origin a486f59bbd8b32af007d6e2bf33cd0d7b04f15c3 \
-    && git checkout a486f59bbd8b32af007d6e2bf33cd0d7b04f15c3
-# This is a bug in rest for processing 0 occupied electron in spin channel
-RUN echo "\
-2067,2068c2067,2072\n\
-<                     .map(|(i,occ)| i).max().unwrap();\n\
-<                 let mut occ_s = occ.get(i_spin).unwrap()[0..homo_s+1].iter().map(|occ| occ.sqrt()).collect::<Vec<f64>>();\n\
----\n\
->                     .map(|(i,occ)| i).max();\n\
->                 let mut occ_s = if let Some(homo_s) = homo_s {\n\
->                     occ.get(i_spin).unwrap()[0..homo_s+1].iter().map(|occ| occ.sqrt()).collect::<Vec<f64>>()\n\
->                 } else {\n\
->                     vec![]\n\
->                 };\n\
-" > correction.patch \
-&& patch rest_workspace/rest/src/dft/mod.rs < correction.patch \
-&& rm correction.patch
+    && git fetch --depth=1 origin be5ce7134d3ce65d191cd2d095efa5ee9a155936 \
+    && git checkout be5ce7134d3ce65d191cd2d095efa5ee9a155936
 
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest_tensors.git rest_tensors \
@@ -220,14 +211,14 @@ RUN cd rest_workspace\
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest_regression.git rest_regression \
     && cd rest_regression \
-    && git fetch --depth=1 origin 9fc755ca0e243ec523ac6a1c3aa78d05572010bf \
-    && git checkout 9fc755ca0e243ec523ac6a1c3aa78d05572010bf
+    && git fetch --depth=1 origin c45e5d8c3d2d8ff6c76977e45425aaf5c07012bd \
+    && git checkout c45e5d8c3d2d8ff6c76977e45425aaf5c07012bd
 
 # # Build and verify REST
 RUN cd rest_workspace \
     && ./Config -r github -f $FC -e
 
-ENV REST_FORTRAN_COMPILER="gfortran"                
+ENV REST_FORTRAN_COMPILER="mpifort"                
 ENV REST_HOME="/opt/rest_workspace"                   
 ENV REST_CINT_DIR="$REST_HOME/lib"        
 ENV LD_LIBRARY_PATH="$REST_EXT_DIR:$LD_LIBRARY_PATH"
@@ -256,3 +247,8 @@ RUN cd rest_workspace \
             (echo "Regression check failed" && exit 1); \
        fi
 
+# add a sudo user to let mpirun work without warning
+RUN useradd -m -s /bin/bash admin && echo "admin:password" | chpasswd
+RUN usermod -aG sudo admin
+RUN echo "admin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER admin
