@@ -198,8 +198,8 @@ COPY --from=dependencies $REST_EXT_INC/ $REST_EXT_INC/
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest.git rest \
     && cd rest \
-    && git fetch --depth=1 origin bb654942e38bfec46c75546ae9e1c040c815f975 \
-    && git checkout bb654942e38bfec46c75546ae9e1c040c815f975
+    && git fetch --depth=1 origin 783158e5d6dc24edb0d7b6cbf7a4a8816c568403 \
+    && git checkout 783158e5d6dc24edb0d7b6cbf7a4a8816c568403
 
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest_tensors.git rest_tensors \
