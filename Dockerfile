@@ -9,9 +9,9 @@ ENV IS_CHINA_ENV=False
 ENV GITHUB=github.com
 
 # Set compilers for C, C++, and Fortran
-ENV CC=mpicc
-ENV CXX=mpicxx
-ENV FC=mpifort
+ENV CC=gcc
+ENV CXX=g++
+ENV FC=gfortran
 
 # Define repository URL for dependencies
 ENV resturl=https://${GITHUB}/RESTGroup
@@ -107,15 +107,18 @@ ENV REST_EXT_DIR="/opt/rest_workspace/lib"
 ENV REST_EXT_INC="/opt/rest_workspace/include"
 ENV REST_BLAS_DIR="/opt/rest_workspace/lib" 
 
+
 # Prepare prerequisites in a separate layer
 FROM base AS dependencies
+# ENV OPENBLAS_NUM_THREADS=128
+ENV OMP_NUM_THREADS=4
 
 # Build and install OpenBLAS library
 # RUN git clone https://${GITHUB}/OpenMathLib/OpenBLAS.git -b v0.3.28 OpenBLAS \
 RUN wget https://${GITHUB}/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.28.tar.gz \
     && tar xf v0.3.28.tar.gz && rm v0.3.28.tar.gz && mv OpenBLAS-0.3.28 OpenBLAS \
     && cd OpenBLAS \
-    && make DYNAMIC_ARCH=1 TARGET=HASWELL \
+    && make DYNAMIC_ARCH=1 TARGET=HASWELL USE_OPENMP=1 \
     && cp libopenblas.so* $REST_EXT_DIR/
 
 # Build and install libcint library
@@ -139,7 +142,7 @@ RUN wget https://gitlab.com/libxc/libxc/-/archive/7.0.0/libxc-7.0.0.tar.gz \
     && cp lib/libxc.a  $REST_EXT_DIR/
 
 # Build and install HDF5 library
-RUN wget https://${GITHUB}/HDFGroup/hdf5/archive/refs/tags/hdf5-1_8_23.tar.gz \
+RUN wget https://${GITHUB}/HDFGroup/hdf5/releases/download/hdf5_1.14.5/hdf5-1.14.5.tar.gz \
     && tar xf hdf5-*.tar.gz && rm hdf5-*.tar.gz \
     && cd hdf5-* \
     && ./configure --prefix=/opt/hdf5 \
@@ -195,8 +198,8 @@ COPY --from=dependencies $REST_EXT_INC/ $REST_EXT_INC/
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest.git rest \
     && cd rest \
-    && git fetch --depth=1 origin be5ce7134d3ce65d191cd2d095efa5ee9a155936 \
-    && git checkout be5ce7134d3ce65d191cd2d095efa5ee9a155936
+    && git fetch --depth=1 origin bb654942e38bfec46c75546ae9e1c040c815f975 \
+    && git checkout bb654942e38bfec46c75546ae9e1c040c815f975
 
 RUN cd rest_workspace\
     && git clone --depth=1 ${resturl}/rest_tensors.git rest_tensors \
@@ -218,7 +221,7 @@ RUN cd rest_workspace\
 RUN cd rest_workspace \
     && ./Config -r github -f $FC -e
 
-ENV REST_FORTRAN_COMPILER="mpifort"                
+ENV REST_FORTRAN_COMPILER="gfortran"                
 ENV REST_HOME="/opt/rest_workspace"                   
 ENV REST_CINT_DIR="$REST_HOME/lib"        
 ENV LD_LIBRARY_PATH="$REST_EXT_DIR:$LD_LIBRARY_PATH"
