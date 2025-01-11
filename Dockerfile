@@ -276,7 +276,7 @@ RUN cd rest_workspace \
        fi
 
 # add a sudo user to let mpirun work without warning
-# RUN useradd -m -s /bin/bash admin && echo "admin:password" | chpasswd
-# RUN usermod -aG sudo admin
-# RUN echo "admin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-# USER admin
+RUN useradd -m -s /bin/bash admin && echo "admin:password" | chpasswd
+RUN usermod -aG sudo admin
+RUN echo "admin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER admin
