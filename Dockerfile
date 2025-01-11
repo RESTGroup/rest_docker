@@ -1,26 +1,39 @@
+# Define the build argument
+ARG CHINA=False
+
 # 1. Define the base image
 FROM ubuntu:22.04 AS base
 
+# Define the build argument for conditional logic
+ARG CHINA
+
+# Use shell logic to set the ENV variable based on the build argument
+RUN if [ "$CHINA" = "True" ]; then \
+        echo "Setting IS_CHINA_ENV=True"; \
+        echo "export IS_CHINA_ENV=True" >> /tmp/bashrc; \
+        echo "export RootUrl=https://github.com/RESTGroup" >> /tmp/bashrc; \
+        echo "export RootUrle=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
+    else \
+        echo "Setting IS_CHINA_ENV=False"; \
+        echo "export IS_CHINA_ENV=False" >> /tmp/bashrc; \
+        echo "export RootUrl=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
+        echo "export RootUrle=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
+    fi
+
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Define whether the environment is inside China and GitHub URL
-ENV IS_CHINA_ENV=False
-ENV GITHUB=github.com
 
 # Set compilers for C, C++, and Fortran
 ENV CC=gcc
 ENV CXX=g++
 ENV FC=gfortran
 
-# Define repository URL for dependencies
-ENV resturl=https://${GITHUB}/RESTGroup
-
 # Set the working directory for subsequent commands
 WORKDIR /opt
 
 # Configure system package sources for faster access if inside China
-RUN if [ "$IS_CHINA_ENV" = "True" ]; then \
+RUN . /tmp/bashrc \
+    && if [ "$IS_CHINA_ENV" = "True" ]; then \
         sed -i -e 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
                -e 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list; \
     fi
@@ -64,7 +77,8 @@ RUN git config --global http.postBuffer 524288000 \
     && git config --global http.lowSpeedTime 999999
 
 # Configure pip index URL for China mirrors if applicable
-RUN if [ "$IS_CHINA_ENV" = "True" ]; then \
+RUN . /tmp/bashrc \
+    && if [ "$IS_CHINA_ENV" = "True" ]; then \
         export PIP_INDEX_URL=https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple; \
     fi
 
@@ -74,14 +88,16 @@ ENV RUSTUP_HOME=/opt/.rustup
 ENV PATH="/opt/.cargo/bin:$PATH"
 
 # Install Rust programming language
-RUN if [ "$IS_CHINA_ENV" = "True" ]; then \
+RUN . /tmp/bashrc \
+    && if [ "$IS_CHINA_ENV" = "True" ]; then \
         export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static; \
         export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup; \
     fi && \
     curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 # Configure Cargo to use China mirrors
-RUN if [ "$IS_CHINA_ENV" = "True" ]; then \
+RUN . /tmp/bashrc \
+    && if [ "$IS_CHINA_ENV" = "True" ]; then \
     mkdir -p /opt/.cargo && \
     echo "\
 [source.crates-io] \n\
@@ -97,7 +113,8 @@ registry = 'https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git' \n\
 RUN rustc --version && cargo --version
 
 # Clone the workspace repository and configure environment paths
-RUN git clone --depth=1 ${resturl}/rest_workspace.git \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/rest_workspace.git \
     && cd rest_workspace \
     && git fetch --depth=1 origin 633e4151499fdfa6b301fe8741204d5dc2892494 \
     && git checkout 633e4151499fdfa6b301fe8741204d5dc2892494 \
@@ -114,17 +131,15 @@ FROM base AS dependencies
 ENV OMP_NUM_THREADS=4
 
 # Build and install OpenBLAS library
-# RUN git clone https://${GITHUB}/OpenMathLib/OpenBLAS.git -b v0.3.28 OpenBLAS \
-RUN wget https://${GITHUB}/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.28.tar.gz \
-    && tar xf v0.3.28.tar.gz && rm v0.3.28.tar.gz && mv OpenBLAS-0.3.28 OpenBLAS \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/OpenBLAS.git -b v0.3.28 OpenBLAS \
     && cd OpenBLAS \
     && make DYNAMIC_ARCH=1 TARGET=HASWELL USE_OPENMP=1 \
     && cp libopenblas.so* $REST_EXT_DIR/
 
 # Build and install libcint library
-# RUN git clone https://${GITHUB}/sunqm/libcint.git -b v6.1.2 libcint \
-RUN wget https://${GITHUB}/sunqm/libcint/archive/refs/tags/v6.1.2.tar.gz \
-    && tar xf v6.1.2.tar.gz && rm v6.1.2.tar.gz && mv libcint-6.1.2 libcint \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/libcint.git -b v6.1.2 libcint \
     && cd libcint \
     && mkdir build && cd build \
     && cmake -DWITH_RANGE_COULOMB=1 .. \
@@ -132,19 +147,20 @@ RUN wget https://${GITHUB}/sunqm/libcint/archive/refs/tags/v6.1.2.tar.gz \
     && cp libcint.so* $REST_EXT_DIR/
 
 # Build and install libxc library
-RUN wget https://gitlab.com/libxc/libxc/-/archive/7.0.0/libxc-7.0.0.tar.gz \
-    && tar xf libxc-* && rm libxc-*.tar.gz \
-    && cd libxc-* \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrle}/libxc.git -b 7.0.0 libxc \
+    && cd libxc \
     && autoreconf -i \
     && ./configure --prefix=$(pwd) --enable-shared \
     && make -j32 && make install \
     && cp lib/libxc.so* $REST_EXT_DIR/ \
     && cp lib/libxc.a  $REST_EXT_DIR/
 
+
 # Build and install HDF5 library
-RUN wget https://${GITHUB}/HDFGroup/hdf5/releases/download/hdf5_1.14.5/hdf5-1.14.5.tar.gz \
-    && tar xf hdf5-*.tar.gz && rm hdf5-*.tar.gz \
-    && cd hdf5-* \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/hdf5.git -b hdf5_1.14.5 hdf5_src \
+    && cd hdf5_src \
     && ./configure --prefix=/opt/hdf5 \
     && make -j32 && make -j32 install \
     && cd /opt/hdf5 \
@@ -153,7 +169,8 @@ RUN wget https://${GITHUB}/HDFGroup/hdf5/releases/download/hdf5_1.14.5/hdf5-1.14
 
 # Build REST-specific dependencies like librest2fch and DFT libraries
 # Install librest2fch for converting quantum chemistry formats
-RUN git clone --depth=1 https://gitlab.com/jeanwsr/MOKIT -b for-rest \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrle}/MOKIT.git -b for-rest MOKIT \
     && cd MOKIT/src \
     && git fetch --depth=1 origin 225f55756784a0539f7ef34f97221927df84136d \
     && git checkout 225f55756784a0539f7ef34f97221927df84136d \
@@ -161,13 +178,16 @@ RUN git clone --depth=1 https://gitlab.com/jeanwsr/MOKIT -b for-rest \
     && cp ../mokit/lib/librest2fch.so $REST_EXT_DIR/
 
 # Install ninja
-RUN wget https://${GITHUB}/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip \
-    && unzip ninja-linux.zip \
-    && mv ninja /usr/local/bin/ \
-    && rm ninja-linux.zip 
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/ninja.git -b v1.12.1 ninja \
+    && cd ninja \
+    && cmake -Bbuild-cmake \
+    && cmake --build build-cmake \
+    && mv build-cmake/ninja /usr/local/bin/ 
 
 # Install dftd3 (Dispersion Correction)
-RUN git clone --depth=1 https://${GITHUB}/dftd3/simple-dftd3.git -b v1.2.1 \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/simple-dftd3.git -b v1.2.1 \
     && cd simple-dftd3 \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
@@ -177,7 +197,8 @@ RUN git clone --depth=1 https://${GITHUB}/dftd3/simple-dftd3.git -b v1.2.1 \
     && cd $REST_EXT_DIR && ln -s libs-dftd3.so.1 libs-dftd3.so
 
 # Build dftd4 for advanced dispersion correction
-RUN git clone --depth=1 https://${GITHUB}/dftd4/dftd4.git -b v3.7.0 \
+RUN . /tmp/bashrc \
+    && git clone --depth=1 ${RootUrl}/dftd4.git -b v3.7.0 \
     && cd dftd4 \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
@@ -195,29 +216,33 @@ COPY --from=dependencies $REST_EXT_DIR/ $REST_EXT_DIR/
 COPY --from=dependencies $REST_EXT_INC/ $REST_EXT_INC/
 
 # Clone and build REST software components
-RUN cd rest_workspace\
-    && git clone --depth=1 ${resturl}/rest.git rest \
+RUN . /tmp/bashrc \
+    && cd rest_workspace\
+    && git clone --depth=1 ${RootUrl}/rest.git rest \
     && cd rest \
     && git fetch --depth=1 origin 783158e5d6dc24edb0d7b6cbf7a4a8816c568403 \
     && git checkout 783158e5d6dc24edb0d7b6cbf7a4a8816c568403
 
-RUN cd rest_workspace\
-    && git clone --depth=1 ${resturl}/rest_tensors.git rest_tensors \
+RUN . /tmp/bashrc \
+    && cd rest_workspace\
+    && git clone --depth=1 ${RootUrl}/rest_tensors.git rest_tensors \
     && cd rest_tensors \
     && git fetch --depth=1 origin 69862164277843a3c3faccb596f62840e60ad6ae \
     && git checkout 69862164277843a3c3faccb596f62840e60ad6ae
-RUN cd rest_workspace\
-    && git clone --depth=1 ${resturl}/rest_libcint.git rest_libcint \
+RUN . /tmp/bashrc \
+    && cd rest_workspace\
+    && git clone --depth=1 ${RootUrl}/rest_libcint.git rest_libcint \
     && cd rest_libcint \
     && git fetch --depth=1 origin 017c38b248077eb6d24413166a126e0fcfdbec9d \
     && git checkout 017c38b248077eb6d24413166a126e0fcfdbec9d
-RUN cd rest_workspace\
-    && git clone --depth=1 ${resturl}/rest_regression.git rest_regression \
+RUN . /tmp/bashrc \
+    && cd rest_workspace\
+    && git clone --depth=1 ${RootUrl}/rest_regression.git rest_regression \
     && cd rest_regression \
     && git fetch --depth=1 origin c45e5d8c3d2d8ff6c76977e45425aaf5c07012bd \
     && git checkout c45e5d8c3d2d8ff6c76977e45425aaf5c07012bd
 
-# # Build and verify REST
+# Build and verify REST
 RUN cd rest_workspace \
     && ./Config -r github -f $FC -e
 

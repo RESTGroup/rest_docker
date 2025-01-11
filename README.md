@@ -1,90 +1,97 @@
 # REST Docker
 
-## Get Image
+## Getting the Docker Image
 
-You can get the Docker image or build the Docker image yourself.
+You can either pull the Docker image from Docker Hub or build it yourself.
 
 ### Pull from Docker Hub
-
-The URL is [Docker Hub - bsplu/rest_docker](https://hub.docker.com/r/bsplu/rest_docker).
 
 To pull the image from Docker Hub, follow these steps:
 
 1. Open your terminal.
-2. Run the following command to pull the image:
+2. Run the following command:
     ```sh
     docker pull bsplu/rest_docker
     ```
-3. To verify that the image has been pulled, run:
+3. Verify the image has been pulled by running:
     ```sh
     docker images
     ```
-    This command will list all the Docker images on your system.
 
-### Build Docker Image Yourself
+### Build the Docker Image
 
 To build the Docker image yourself, follow these steps:
 
 1. Open your terminal.
 2. Navigate to the directory containing the Dockerfile.
-3. Run the following command to build the image:
+3. Run the following command:
     ```sh
-    docker build -t rest/[environment_specific]:v[version] . -f Dockerfile
+    docker build -t [name]:[version] .
     ```
-    This command will create a Docker image with the tag `rest/[environment_specific]:v[version]`.
+4. Verify the images after a successful build:
+    ```sh
+    docker images
+    ```
+5. [Optional] After you build, you may want to clean the cache:
+    ```sh
+    docker image prune -f
+    ```
 
-## Run
+**Note:**
+- `[name]` is the image name you want to use, like `rest/mpi`, `your_name/rest/x86`, etc.
+- `[version]` is the version tag for the named image, like `v0.2`, etc.
+- If you are in China, you may want to use `docker build --build-arg CHINA=True -t [name]:[version] .` to speed up downloading files.
 
-### Shell Mode (for debugging)
+## Running the Docker Container
 
-To run the container in interactive mode (useful for debugging), follow these steps:
+### Shell Mode (for Debugging)
+
+To run the container in interactive mode:
 
 1. Open your terminal.
 2. Run the following command:
     ```sh
-    docker run --rm -it rest/[environment_specific]:v[version] /bin/bash
+    docker run --rm -it [name]:[version] /bin/bash
     ```
-3. Inside the container, you can run your commands as needed.
-4. When you are done, type `exit` to leave the container. The container will be cleaned up automatically.
+3. When done, type `exit` to leave the container.
 
-### Exec Mode (for job submission)
+### Exec Mode (for Job Submission)
 
-To run the container for job submission, follow these steps:
+To run the container for job submission:
 
 1. Open your terminal.
-2. Mount a local directory to the container and set the working directory by running:
+2. Run the following command:
     ```sh
-    docker run --rm -v /path/to/local/dir:/path/in/container -w /path/in/container rest/[environment_specific]:v[version] /bin/bash -c "rest"
+    docker run --rm -v /path/to/local/dir:/path/in/container -w /path/in/container [name]:[version] /bin/bash -c "rest"
     ```
-    Replace `/path/to/local/dir` with the path to your local directory and `/path/in/container` with the desired path inside the container.
-3. The command `rest` will be executed inside the container with the specified working directory.
-4. When the job is done, the container will exit and be cleaned up automatically.
 
-## Convert to Singularity
+## Converting to Singularity
 
-To convert the Docker image to a Singularity image, follow one of the two methods below:
-
-### Option 1: Using docker-daemon
+### Using docker-daemon
 
 Run the following command:
 ```sh
-singularity build rest_[environment_specific]_v[version].sif docker-daemon://rest/[environment_specific]:v[version]
+singularity build [name]_[version].sif docker-daemon://[name]:[version]
 ```
 
-### Option 2: Export Docker Image to a TAR file
+### Export Docker Image to a TAR File
 
-1. Export the Docker image to a TAR file:
+1. Export the Docker image:
     ```sh
-    docker save -o rest_[environment_specific]_v[version].tar rest/[environment_specific]:v[version]
+    docker save -o [name]_[version].tar [name]:[version]
     ```
-2. Build the Singularity image from the TAR file:
+2. Build the Singularity image:
     ```sh
-    singularity build rest_[environment_specific]_v[version].sif docker-archive://rest_[environment_specific]_v[version].tar
+    singularity build [name]_[version].sif docker-archive://[name]_[version].tar
     ```
 
-### Run the Singularity Container
+### Running the Singularity Container
 
-Once the Singularity image is built, you can run it with:
+To run the Singularity container:
 ```sh
-singularity exec --bind /path/to/local:/path/in/container rest_[environment_specific]_v[version].sif bash -c "rest"
+singularity exec --bind /path/to/local:/path/in/container [name]_[version].sif bash -c "rest"
 ```
+
+## For Developers
+
+Use the `dev` branch for development. In this branch, the `admin` user is not created, and root is the default user. This image can be used as a base layer for your own Docker images or for development and compilation. For production use, ensure you create an `admin` user for security and ease of running commands like `mpirun`.
