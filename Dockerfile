@@ -275,6 +275,28 @@ RUN cd rest_workspace \
             (echo "Regression check failed" && exit 1); \
        fi
 
+# set envs for root's development, if run `sudo su -`
+RUN echo '\
+\n\
+# RUST Enviroments  \n\
+export CC=gcc \n\
+export CXX=g++ \n\
+export FC=gfortran \n\
+export CARGO_HOME=/opt/.cargo \n\
+export RUSTUP_HOME=/opt/.rustup \n\
+export REST_EXT_DIR="/opt/rest_workspace/lib" \n\
+export REST_EXT_INC="/opt/rest_workspace/include" \n\
+export REST_BLAS_DIR="/opt/rest_workspace/lib" \n\
+export REST_FORTRAN_COMPILER="gfortran" \n\
+export REST_HOME="/opt/rest_workspace" \n\
+export REST_CINT_DIR="$REST_HOME/lib" \n\
+export HDF5_DIR="$REST_HOME" \n\
+export REST_HDF5_DIR="$REST_HOME" \n\
+export REST_XC_DIR="$REST_HOME" \n\
+export PATH="$REST_HOME/target/release:/opt/.cargo/bin:$PATH" \n\
+export LD_LIBRARY_PATH="$REST_EXT_DIR:$LD_LIBRARY_PATH" \n\
+' >> $HOME/.bashrc
+
 # add a sudo user to let mpirun work without warning
 RUN useradd -m -s /bin/bash admin && echo "admin:password" | chpasswd
 RUN usermod -aG sudo admin
