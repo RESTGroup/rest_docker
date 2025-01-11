@@ -94,4 +94,12 @@ singularity exec --bind /path/to/local:/path/in/container [name]_[version].sif b
 
 ## For Developers
 
-Use the `dev` branch for development. In this branch, the `admin` user is not created, and root is the default user. This image can be used as a base layer for your own Docker images or for development and compilation. For production use, ensure you create an `admin` user for security and ease of running commands like `mpirun`.
+- If you want to debug code in the image, you can run:
+    ```sh
+    docker run --rm -it [name]:[version] sudo su - && /bin/bash
+    ```
+- If you want to write a Dockerfile based on this repository, you can use:
+    ```dockerfile
+    FROM bsplu/rest_docker
+    USER root
+    ```
