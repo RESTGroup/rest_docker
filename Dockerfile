@@ -10,14 +10,18 @@ ARG CHINA
 # Use shell logic to set the ENV variable based on the build argument
 RUN if [ "$CHINA" = "True" ]; then \
         echo "Setting IS_CHINA_ENV=True"; \
-        echo "export IS_CHINA_ENV=True" >> /tmp/bashrc; \
-        echo "export RootUrl=https://github.com/RESTGroup" >> /tmp/bashrc; \
-        echo "export RootUrle=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
+        echo "\
+export IS_CHINA_ENV=True \n\
+export RootUrle=https://gitee.com/restgroup \n\
+export RootUrl=\${RootUrle} \n" \
+>> /tmp/bashrc; \
     else \
         echo "Setting IS_CHINA_ENV=False"; \
-        echo "export IS_CHINA_ENV=False" >> /tmp/bashrc; \
-        echo "export RootUrl=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
-        echo "export RootUrle=https://gitee.com/RESTGroup" >> /tmp/bashrc; \
+        echo "\
+export IS_CHINA_ENV=False \n\
+export RootUrle=https://gitee.com/restgroup \n\
+export RootUrl=https://github.com/RESTGroup \n" \
+>> /tmp/bashrc; \
     fi
 
 # Prevent interactive prompts during installation
@@ -124,22 +128,45 @@ ENV REST_EXT_DIR="/opt/rest_workspace/lib"
 ENV REST_EXT_INC="/opt/rest_workspace/include"
 ENV REST_BLAS_DIR="/opt/rest_workspace/lib" 
 
-
+# =======================================================================
 # Prepare prerequisites in a separate layer
 FROM base AS dependencies
-# ENV OPENBLAS_NUM_THREADS=128
-ENV OMP_NUM_THREADS=4
+
+# set repository url enviroment
+RUN echo "\
+export OMP_NUM_THREADS=4 \n\
+export url_blas=\${RootUrl}/OpenBLAS.git \n\
+export url_libcint=\${RootUrl}/libcint.git \n\
+export url_libcint=\${RootUrl}/libcint.git \n\
+export url_hdf5=\${RootUrl}/hdf5.git \n\
+export url_ninja=\${RootUrl}/ninja.git \n\
+export url_dftd3=\${RootUrl}/simple-dftd3.git \n\
+export url_dftd4=\${RootUrl}/dftd4.git \n\
+" >> /tmp/bashrc
+
+RUN . /tmp/bashrc \
+    && if [ "$IS_CHINA_ENV" = "True" ]; then \
+        echo "\
+export url_libxc=\${RootUrle}/libxc.git \n \
+export url_MOKIT=\${RootUrle}/MOKIT.git \n" \
+        >> /tmp/bashrc; \
+    else \
+        echo "\
+export url_libxc=https://gitlab.com/libxc/libxc.git \n\
+export url_MOKIT=https://gitlab.com/jeanwsr/MOKIT.git \n" \
+        >> /tmp/bashrc; \
+    fi
 
 # Build and install OpenBLAS library
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/OpenBLAS.git -b v0.3.28 OpenBLAS \
+    && git clone --depth=1 ${url_blas} -b v0.3.28 OpenBLAS \
     && cd OpenBLAS \
     && make DYNAMIC_ARCH=1 TARGET=HASWELL USE_OPENMP=1 \
     && cp libopenblas.so* $REST_EXT_DIR/
 
 # Build and install libcint library
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/libcint.git -b v6.1.2 libcint \
+    && git clone --depth=1 ${url_libcint} -b v6.1.2 libcint \
     && cd libcint \
     && mkdir build && cd build \
     && cmake -DWITH_RANGE_COULOMB=1 .. \
@@ -148,7 +175,7 @@ RUN . /tmp/bashrc \
 
 # Build and install libxc library
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrle}/libxc.git -b 7.0.0 libxc \
+    && git clone --depth=1 ${url_libxc} -b 7.0.0 libxc \
     && cd libxc \
     && autoreconf -i \
     && ./configure --prefix=$(pwd) --enable-shared \
@@ -159,7 +186,7 @@ RUN . /tmp/bashrc \
 
 # Build and install HDF5 library
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/hdf5.git -b hdf5_1.14.5 hdf5_src \
+    && git clone --depth=1 ${url_hdf5} -b hdf5_1.14.5 hdf5_src \
     && cd hdf5_src \
     && ./configure --prefix=/opt/hdf5 \
     && make -j32 && make -j32 install \
@@ -170,7 +197,7 @@ RUN . /tmp/bashrc \
 # Build REST-specific dependencies like librest2fch and DFT libraries
 # Install librest2fch for converting quantum chemistry formats
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrle}/MOKIT.git -b for-rest MOKIT \
+    && git clone --depth=1 ${url_MOKIT} -b for-rest MOKIT \
     && cd MOKIT/src \
     && git fetch --depth=1 origin 225f55756784a0539f7ef34f97221927df84136d \
     && git checkout 225f55756784a0539f7ef34f97221927df84136d \
@@ -179,7 +206,7 @@ RUN . /tmp/bashrc \
 
 # Install ninja
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/ninja.git -b v1.12.1 ninja \
+    && git clone --depth=1 ${url_ninja} -b v1.12.1 ninja \
     && cd ninja \
     && cmake -Bbuild-cmake \
     && cmake --build build-cmake \
@@ -187,7 +214,7 @@ RUN . /tmp/bashrc \
 
 # Install dftd3 (Dispersion Correction)
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/simple-dftd3.git -b v1.2.1 \
+    && git clone --depth=1 ${url_dftd3} -b v1.2.1 \
     && cd simple-dftd3 \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
@@ -198,7 +225,7 @@ RUN . /tmp/bashrc \
 
 # Build dftd4 for advanced dispersion correction
 RUN . /tmp/bashrc \
-    && git clone --depth=1 ${RootUrl}/dftd4.git -b v3.7.0 \
+    && git clone --depth=1 ${url_dftd4} -b v3.7.0 \
     && cd dftd4 \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
@@ -209,6 +236,7 @@ RUN . /tmp/bashrc \
     && find build -name *.mod | xargs -I {} cp {} $REST_EXT_INC/dftd4 \
     && cd $REST_EXT_DIR && ln -s libdftd4.so.3 libdftd4.so
 
+# =======================================================================
 # 3. Finalize the REST installation in a new stage
 FROM base AS rest
 # Copy built dependencies from the previous stage
@@ -276,7 +304,7 @@ RUN cd rest_workspace \
        fi
 
 # set envs for root's development, if run `sudo su -`
-RUN echo '\
+RUN echo "\
 \n\
 # RUST Enviroments  \n\
 export CC=gcc \n\
@@ -284,18 +312,18 @@ export CXX=g++ \n\
 export FC=gfortran \n\
 export CARGO_HOME=/opt/.cargo \n\
 export RUSTUP_HOME=/opt/.rustup \n\
-export REST_EXT_DIR="/opt/rest_workspace/lib" \n\
-export REST_EXT_INC="/opt/rest_workspace/include" \n\
-export REST_BLAS_DIR="/opt/rest_workspace/lib" \n\
-export REST_FORTRAN_COMPILER="gfortran" \n\
-export REST_HOME="/opt/rest_workspace" \n\
-export REST_CINT_DIR="$REST_HOME/lib" \n\
-export HDF5_DIR="$REST_HOME" \n\
-export REST_HDF5_DIR="$REST_HOME" \n\
-export REST_XC_DIR="$REST_HOME" \n\
-export PATH="$REST_HOME/target/release:/opt/.cargo/bin:$PATH" \n\
-export LD_LIBRARY_PATH="$REST_EXT_DIR:$LD_LIBRARY_PATH" \n\
-' >> $HOME/.bashrc
+export REST_EXT_DIR=/opt/rest_workspace/lib \n\
+export REST_EXT_INC=/opt/rest_workspace/include \n\
+export REST_BLAS_DIR=/opt/rest_workspace/lib \n\
+export REST_FORTRAN_COMPILER=gfortran \n\
+export REST_HOME=/opt/rest_workspace \n\
+export REST_CINT_DIR=\$REST_HOME/lib \n\
+export HDF5_DIR=\$REST_HOME \n\
+export REST_HDF5_DIR=\$REST_HOME \n\
+export REST_XC_DIR=\$REST_HOME \n\
+export PATH=\$REST_HOME/target/release:/opt/.cargo/bin:\$PATH \n\
+export LD_LIBRARY_PATH=\$REST_EXT_DIR:\$LD_LIBRARY_PATH \n\
+" >> $HOME/.bashrc
 
 # add a sudo user to let mpirun work without warning
 RUN useradd -m -s /bin/bash admin && echo "admin:password" | chpasswd
