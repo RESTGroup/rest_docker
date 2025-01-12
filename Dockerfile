@@ -92,12 +92,13 @@ ENV RUSTUP_HOME=/opt/.rustup
 ENV PATH="/opt/.cargo/bin:$PATH"
 
 # Install Rust programming language
+COPY src/rustup_20250112.sh /opt/rustup.sh
 RUN . /tmp/bashrc \
     && if [ "$IS_CHINA_ENV" = "True" ]; then \
         export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static; \
         export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup; \
     fi && \
-    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    sh /opt/rustup.sh -y
 
 # Configure Cargo to use China mirrors
 RUN . /tmp/bashrc \
