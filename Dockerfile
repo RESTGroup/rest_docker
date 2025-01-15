@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     libblas-dev \
     liblapack-dev \
+    libgtest-dev \
     iputils-ping \
     openssl \
     libssl-dev \
@@ -138,11 +139,14 @@ RUN echo "\
 export OMP_NUM_THREADS=4 \n\
 export url_blas=\${RootUrl}/OpenBLAS.git \n\
 export url_libcint=\${RootUrl}/libcint.git \n\
-export url_libcint=\${RootUrl}/libcint.git \n\
 export url_hdf5=\${RootUrl}/hdf5.git \n\
 export url_ninja=\${RootUrl}/ninja.git \n\
 export url_dftd3=\${RootUrl}/simple-dftd3.git \n\
 export url_dftd4=\${RootUrl}/dftd4.git \n\
+export url_mctc=\${RootUrl}/mctc-lib.git \n\
+export url_toml=\${RootUrl}/toml-f.git \n\
+export url_mstore=\${RootUrl}/mstore.git \n\
+export url_drive=\${RootUrl}/test-drive.git \n\
 " >> /tmp/bashrc
 
 RUN . /tmp/bashrc \
@@ -214,9 +218,21 @@ RUN . /tmp/bashrc \
     && mv build-cmake/ninja /usr/local/bin/ 
 
 # Install dftd3 (Dispersion Correction)
+
 RUN . /tmp/bashrc \
     && git clone --depth=1 ${url_dftd3} -b v1.2.1 \
     && cd simple-dftd3 \
+    && mkdir -p build/_deps \
+    && git clone ${url_drive} build/_deps/test-drive-src \
+    && cd build/_deps/test-drive-src \
+    && cmake -B ../test-drive-subbuild -G Ninja \
+    && cmake --build ../test-drive-subbuild
+
+RUN . /tmp/bashrc \
+    && cd simple-dftd3 \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mctc-lib|${url_mctc}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mstore|${url_mstore}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/toml-f/toml-f|${url_toml}|g" {} + \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
     && cp build/libs-dftd3.so.* $REST_EXT_DIR/ \
@@ -228,6 +244,29 @@ RUN . /tmp/bashrc \
 RUN . /tmp/bashrc \
     && git clone --depth=1 ${url_dftd4} -b v3.7.0 \
     && cd dftd4 \
+    && mkdir -p build/_deps \
+    && git clone ${url_drive} build/_deps/test-drive-src \
+    && cd build/_deps/test-drive-src \
+    && cmake -B ../test-drive-subbuild -G Ninja \
+    && cmake --build ../test-drive-subbuild 
+RUN . /tmp/bashrc \
+    && cd dftd4 \
+    && mkdir -p build/_deps \
+    && git clone ${RootUrle}/multicharge build/_deps/multicharge-src \
+    && cd build/_deps/multicharge-src \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mctc-lib|${url_mctc}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mstore|${url_mstore}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/toml-f/toml-f|${url_toml}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/toml-f/toml-f|${RootUrle}/multicharge|g" {} + \
+    && cmake -B ../multicharge-subbuild -G Ninja \
+    && cmake --build ../multicharge-subbuild 
+
+RUN . /tmp/bashrc \
+    && cd dftd4 \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mctc-lib|${url_mctc}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/grimme-lab/mstore|${url_mstore}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/toml-f/toml-f|${url_toml}|g" {} + \
+    && find . -type f -exec sed -i "s|https://github.com/toml-f/toml-f|${RootUrle}/multicharge|g" {} + \
     && cmake -B build -G Ninja -DBUILD_SHARED_LIBS=1 \
     && cmake --build build \
     && mkdir -p $REST_EXT_INC/dftd4 \
